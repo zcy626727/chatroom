@@ -4,7 +4,6 @@
     <!-- <HelloWorld msg="Welcome to Your Vue.js App"/> -->
   </div>
   <!-- <aplayer :audio="audio" :lrcType="3" /> -->
- 
   <button @click="test">点我测试</button>
 </template>
 

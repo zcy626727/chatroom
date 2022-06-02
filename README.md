@@ -1,24 +1,27 @@
-# mcommunity
+## 介绍
+聊天室前台页面，支持群聊、私聊、点歌（需要运行音乐接口，我不确定现在还能不能用）
 
-## Project setup
+## 运行
+
+### 安装依赖
 ```
 npm install
 ```
 
-### Compiles and hot-reloads for development
+### 运行
 ```
 npm run serve
 ```
 
-### Compiles and minifies for production
+### 编译
 ```
 npm run build
 ```
 
-### Lints and fixes files
-```
-npm run lint
-```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+## 界面展示
+### 登录
+![登录](./pic/1.png)
+### 注册
+![注册](./pic/2.png)
+### 聊天界面
+![登录](./pic/3.png)

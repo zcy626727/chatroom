@@ -49,7 +49,7 @@
       </div>
       <!-- ./ logo -->
 
-      <h5>register</h5>
+      <h5>注册</h5>
 
       <!-- form -->
       <el-form
