@@ -1564,7 +1564,7 @@
             <!-- 消息 -->
             <div ref="messages" class="messages">
               <template
-                v-for="(chatMessage, index) in currentType == '0'
+                v-for="(chatMessage, index) in currentType == '1'
                   ? roomMessages[currentChat.id]
                   : friendMessages[currentChat.id]"
                 :key="index"
@@ -1681,7 +1681,7 @@
         <!-- ./ chat -->
 
         <!-- 点击更多后的弹出框，显示聊天室信息 -->
-        <div v-show="currentType == '0'" class="sidebar-group">
+        <div v-show="currentType == '1'" class="sidebar-group">
           <div
             id="contact-information"
             :class="{ sidebar: true, active: rightSidebar == 'information' }"
@@ -1808,7 +1808,7 @@
         </div>
 
         <!-- 点击更多后的弹出框，显示好友信息 -->
-        <div v-show="currentType == '1'" class="sidebar-group">
+        <div v-show="currentType == '0'" class="sidebar-group">
           <div
             id="contact-information"
             :class="{ sidebar: true, active: rightSidebar == 'information' }"
@@ -1978,8 +1978,8 @@ export default {
         roomName: [{ validator: checkCommon, trigger: "blur" }],
         description: [{ validator: checkText, trigger: "blur" }],
       },
-      //当前是好友(1)/聊天室(0)
-      currentType: "0",
+      //当前是好友(0)/聊天室(1)
+      currentType: "1",
       //当前聊天(1为群聊/0为私聊)
       currentChat: {
         // id: "1",
@@ -2508,12 +2508,12 @@ export default {
                   type: "success",
                   message: response.data.message,
                 });
-                // this.$router.go(0);
+                this.$router.go(0);
                 //关闭连接
-                this.websocket.close();
+                // this.websocket.close();
                 //重新初始化
-                this.initWebsocket();
-                this.initFriend();
+                // this.initWebsocket();
+                // this.initFriend();
               } else {
                 this.$message({
                   type: "error",
@@ -2577,7 +2577,44 @@ export default {
       if (typeof item.motto == "undefined") {
         item.motto = "无";
       }
-      this.currentType = "1";
+
+      this.currentType = "0";
+
+      this.$axios
+        .get(
+          process.env.VUE_APP_BASEURL +
+            "chatMessage/getHistoryByUser/" +this.currentType+"/"+item.uId+"/"+
+            this.$store.getters.getLoginInfo.uId
+        )
+        .then((response) => {
+          if (response.data.code == 2000) {
+            debugger
+            var msgs = response.data.data.chatMessages
+            if(msgs[0]){
+              //清空该聊天室消息
+              this.friendMessages[msgs[0].targetId==this.$store.getters.getLoginInfo.uId?msgs[0].senderId:msgs[0].targetId] = [];
+
+              for(var index in msgs){
+                
+                this.friendMessages[msgs[0].targetId==this.$store.getters.getLoginInfo.uId?msgs[0].senderId:msgs[0].targetId].push({
+                  msgType:
+                    msgs[index].senderId == this.$store.getters.getLoginInfo.uId
+                      ? "msg_own"
+                      : "msg_you",
+                  senderName: msgs[index].senderName,
+                  sendTime: msgs[index].sendTime,
+                  content: msgs[index].content,
+                });
+              }
+              
+            }
+          } else {
+            ElMessage.error("消息记录获取失败")
+          }
+        });
+
+
+      
       this.currentChat = {
         id: item.uId,
         name: item.nickname,
@@ -2590,11 +2627,42 @@ export default {
         regTime: item.regTime,
       };
       this.flushScroll(this.$refs.userInfoItems, false);
+
     },
     //点击聊天室item
     clickChatRoomItem(item) {
       //类型改为聊天室
-      this.currentType = "0";
+      this.currentType = "1";
+      //获取聊天记录
+      this.$axios
+        .get(
+          process.env.VUE_APP_BASEURL +
+            "chatMessage/getHistoryByUser/" +this.currentType+"/"+item.rid+"/"+
+            this.$store.getters.getLoginInfo.uId
+        )
+        .then((response) => {
+          if (response.data.code == 2000) {
+            debugger
+            var msgs = response.data.data.chatMessages
+            if(msgs[0]){
+              //清空该聊天室消息
+              this.roomMessages[msgs[0].targetId] = [];
+              for(var index in msgs){
+                this.roomMessages[msgs[0].targetId].push({
+                  msgType:
+                    msgs[index].senderId == this.$store.getters.getLoginInfo.uId
+                      ? "msg_own"
+                      : "msg_you",
+                  senderName: msgs[index].senderName,
+                  sendTime: msgs[index].sendTime,
+                  content: msgs[index].content,
+                });
+              }
+            }
+          } else {
+            ElMessage.error("失败")
+          }
+        });
 
       //设置当前聊天信息
       this.currentChat = {
@@ -2689,6 +2757,25 @@ export default {
           targetId: this.currentChat.id,
         };
         this.websocket.send(JSON.stringify(msgJson));
+        this.$axios({
+        url: process.env.VUE_APP_BASEURL + "chatMessage/saveMessage",
+        method: "post",
+        data: {
+          content:msg,
+          type:this.currentChat.chatType,
+          senderId:this.$store.getters.getLoginInfo.uId,
+          targetId:this.currentChat.id,
+          senderName:this.$store.getters.getLoginInfo.nickname,
+        },
+      })
+        .then((response) => {
+          if (response.data.code != 2000) {
+            ElMessage.error("操作失败");
+          }
+        })
+        .catch(() => {
+          ElMessage.error("操作失败");
+        });
         this.$refs.msgInput.value = "";
       } else {
         //没消息，重新聚焦到input
@@ -2747,11 +2834,20 @@ export default {
           // alert(event.data);
           if (msg.sendSuccess == "0") {
             //发送失败
-            this.$notify.info({
-              title: "发送失败",
-              message: "对方不在线",
-              duration: 1500,
+            this.currentChat.title = "不在线"
+            if (typeof this.friendMessages[msg.uId] == "undefined") {
+              this.friendMessages[msg.uId] = [];
+            }
+            this.friendMessages[msg.uId].push({
+              msgType:
+                msg.senderId == this.$store.getters.getLoginInfo.uId
+                  ? "msg_own"
+                  : "msg_you",
+              senderName: msg.senderName,
+              sendTime: msg.sendTime,
+              content: msg.content,
             });
+
           } else {
             //消息发送成功
             if (typeof this.friendMessages[msg.uId] == "undefined") {
@@ -2759,7 +2855,7 @@ export default {
             }
             this.friendMessages[msg.uId].push({
               msgType:
-                msg.senderId == +this.$store.getters.getLoginInfo.uId
+                msg.senderId == this.$store.getters.getLoginInfo.uId
                   ? "msg_own"
                   : "msg_you",
               senderName: msg.senderName,
@@ -2774,7 +2870,7 @@ export default {
           }
           this.roomMessages[msg.rId].push({
             msgType:
-              msg.senderId == +this.$store.getters.getLoginInfo.uId
+              msg.senderId == this.$store.getters.getLoginInfo.uId
                 ? "msg_own"
                 : "msg_you",
             senderName: msg.senderName,
@@ -2870,7 +2966,6 @@ export default {
             for (var index in response.data.data.friends) {
               var friend = response.data.data.friends[index];
               this.friends[friend.uId] = friend;
-              console.log(this.user[friend.uId]);
             }
           } else {
             this.$notify.error({
